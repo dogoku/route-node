@@ -475,6 +475,20 @@ describe('RouteNode', function () {
         withoutMeta(node.matchPath('/admin/?page=1')).should.eql({ name: 'app.admin.users', params: { page: '1' }});
         withoutMeta(node.matchPath('/admin/')).should.eql({ name: 'app.admin.users', params: {}});
     });
+
+    it('should match a path to a dynamic route even if it partially matches a static route, ', () => {
+        var node = new RouteNode('', '', [
+            new RouteNode('home', '/home'),
+            new RouteNode('home-second', '/home/:second'),
+            new RouteNode('first', '/:first'),
+            new RouteNode('first.second', '/:second')
+        ]);
+
+        withoutMeta(node.matchPath('/home')).should.eql({ name: 'home', params: {}});
+        withoutMeta(node.matchPath('/homefoo')).should.eql({ name: 'first', params: { first: 'homefoo' }});
+        withoutMeta(node.matchPath('/home/foo')).should.eql({ name: 'home-second', params: { second: 'foo'}});
+        withoutMeta(node.matchPath('/homefoo/bar')).should.eql({ name: 'first.second', params: { first: 'homefoo', second: 'bar' }});
+    });
 });
 
 

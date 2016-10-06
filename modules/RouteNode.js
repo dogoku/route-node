@@ -185,15 +185,29 @@ export default class RouteNode {
             for (let i = 0; i < nodes.length; i += 1) {
                 const child = nodes[i];
 
+                const p = child.parser;
+                const children = child.getNonAbsoluteChildren();
+                const hasNoChildren = children.length === 0;
+                const hasParams = p.hasUrlParams || p.hasSpatParam || p.hasMatrixParams || p.hasQueryParams;
+                const singleSegmentPath = pathSegment.lastIndexOf('/') <= 0;
+                const segmentHasNoParams = pathSegment.indexOf('?') === -1;
+                const canShortCircuit =  !hasParams && segmentHasNoParams && (hasNoChildren || singleSegmentPath);
+
+                if (GLOBAL._debug) debugger;
+
+                if (canShortCircuit) {
+                    if (child.parser.match(pathSegment, trailingSlash)) {
+                        segments.push(child);
+                        return segments;
+                    }
+                    continue;
+                }
+
                 // Partially match path
                 let match = child.parser.partialMatch(pathSegment);
                 let remainingPath;
 
-                if (!match && trailingSlash) {
-                    // Try with optional trailing slash
-                    match = child.parser.match(pathSegment, true);
-                    remainingPath = '';
-                } else if (match) {
+                if (match) {
                     // Remove consumed segment from path
                     const consumedPath = child.parser.build(match, {ignoreSearch: true});
                     remainingPath = pathSegment.replace(consumedPath, '');
@@ -202,10 +216,6 @@ export default class RouteNode {
                         child.parser.queryParams.concat(child.parser.queryParamsBr)
                     );
                     remainingPath = getPath(remainingPath) + (search ? `?${search}` : '');
-
-                    if (trailingSlash && !isRoot && remainingPath === '/' && !/\/$/.test(consumedPath)) {
-                        remainingPath = '';
-                    }
                 }
 
                 if (match) {
@@ -222,9 +232,8 @@ export default class RouteNode {
                         return segments;
                     }
                     // Continue matching on non absolute children
-                    const children = child.getNonAbsoluteChildren();
                     // If no children to match against but unmatched path left
-                    if (!children.length) {
+                    if (hasNoChildren) {
                         return null;
                     }
                     // Else: remaining path and children
